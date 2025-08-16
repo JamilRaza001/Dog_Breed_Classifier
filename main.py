@@ -306,100 +306,236 @@ def main():
 
     with tab1:
         st.subheader("Upload Dog Images for Elite-Level Breed Prediction")
-        uploaded_files = st.file_uploader(
-            "Choose dog images for elite-level analysis...",
-            type=['png', 'jpg', 'jpeg'],
-            accept_multiple_files=True,
-            help="Upload dog images to experience 90.57% accuracy predictions!"
-        )
+        
+        # Multiple image processing options
+        col_upload1, col_upload2 = st.columns([2, 1])
+        with col_upload1:
+            uploaded_files = st.file_uploader(
+                "Choose dog images for elite-level analysis...",
+                type=['png', 'jpg', 'jpeg'],
+                accept_multiple_files=True,
+                help="Upload multiple dog images to experience 90.57% accuracy predictions! Supports batch processing."
+            )
+        
+        with col_upload2:
+            if uploaded_files:
+                st.info(f"📁 **{len(uploaded_files)} images** selected for analysis")
+                batch_analysis = st.checkbox("Enable Batch Summary", value=True, help="Show summary statistics for all images")
+                show_individual = st.checkbox("Show Individual Analysis", value=True, help="Show detailed analysis for each image")
+            else:
+                st.info("👆 Select multiple images above")
+                batch_analysis = False
+                show_individual = True
 
         if uploaded_files:
-            for i, uploaded_file in enumerate(uploaded_files):
-                st.markdown(f"### 📸 Elite Analysis - Image {i+1}: {uploaded_file.name}")
-                # two-column layout: left=image, right=top1 & short info
-                col1, col2 = st.columns([1, 1])
-
-                predictions = []
-
-                with col1:
-                    try:
-                        image_pil = Image.open(uploaded_file)
-                        st.image(image_pil, caption=f"Uploaded: {uploaded_file.name}", use_container_width=True)
-                    except Exception as e:
-                        st.error(f"Could not display image: {e}")
-                        image_pil = None
-
-                with col2:
-                    with st.spinner("🔄 Elite AI analyzing image..."):
-                        img_array, processed_img = preprocess_image(uploaded_file)
-                        if img_array is not None:
-                            predictions = predict_breed(model, img_array, top_k=show_top_k)
-                            if predictions and len(predictions) > 0:
-                                # Keep Top-1 display inside the right column
-                                top_prediction = predictions[0]
-                                confidence_level, css_class = get_prediction_confidence_level(top_prediction['percentage'])
-                                st.markdown(f"""
-                                    <div class="prediction-box {css_class}">
-                                        <h2>🏆 Elite Prediction</h2>
-                                        <h1>{top_prediction['breed']}</h1>
-                                        <h2>{top_prediction['percentage']:.1f}% Confidence</h2>
-                                        <h3>{confidence_level}</h3>
-                                    </div>
-                                    """, unsafe_allow_html=True)
-
-                                confidence = top_prediction['percentage']
-                                if confidence > 80:
-                                    st.success("🌟 **ELITE CONFIDENCE**: Extremely reliable prediction.")
-                                elif confidence > 60:
-                                    st.success("🎯 **HIGH CONFIDENCE**: Very reliable prediction.")
-                                elif confidence > 40:
-                                    st.warning("✅ **GOOD CONFIDENCE**: Solid prediction, check alternatives.")
-                                else:
-                                    st.info("🤔 **UNCERTAIN**: Consider top 3–5 predictions.")
-
-                            else:
-                                st.warning("No predictions returned by model.")
-                        else:
-                            st.error("❌ Failed to preprocess the image. Please try a different image.")
-
-                # ---------- CENTERED FULL-WIDTH TOP-5 BLOCK ----------
-                if predictions is not None and len(predictions) > 0:
-                    # Ensure we always show top-5 slots (fill with placeholders if needed)
-                    top5 = predictions[:5]
-                    # If fewer than 5 results, pad with blanks
-                    while len(top5) < 5:
-                        top5.append({'rank': len(top5)+1, 'breed': '—', 'confidence': 0.0, 'percentage': 0.0})
-
-                    # Centered header
-                    st.markdown("<div class='top5-header'>🔝 Top 5 Predictions</div>", unsafe_allow_html=True)
-
-                    # Full width row of 5 columns so cards span the page and are centered
-                    card_cols = st.columns(5)
-                    for col, p in zip(card_cols, top5):
-                        with col:
-                            st.markdown(
-                                f"""
-                                <div class="top5-card">
-                                  <div class="top5-rank">Rank #{p['rank']}</div>
-                                  <div class="top5-breed">{p['breed']}</div>
-                                  <div style="font-weight:600">{p['percentage']:.1f}%</div>
-                                </div>
-                                """,
-                                unsafe_allow_html=True
-                            )
-
-                    # Single Top-5 chart (full width)
-                    fig_top5 = create_confidence_chart([p for p in top5 if p['breed'] != '—'])
-                    st.plotly_chart(fig_top5, use_container_width=True)
-
-                    # Top-5 dataframe / quick table
-                    df_top5 = pd.DataFrame([p for p in top5 if p['breed'] != '—'])
-                    if not df_top5.empty:
-                        df_top5['confidence'] = df_top5['percentage'].apply(lambda x: f"{x:.1f}%")
-                        df_top5['assessment'] = df_top5['percentage'].apply(lambda x: get_prediction_confidence_level(x)[0])
-                        st.dataframe(df_top5[['rank', 'breed', 'confidence', 'assessment']], use_container_width=True, hide_index=True)
-
+            # Batch processing summary
+            if batch_analysis and len(uploaded_files) > 1:
+                st.markdown("## 📊 Batch Processing Summary")
                 
+                # Process all images for batch summary
+                batch_results = []
+                batch_progress = st.progress(0)
+                batch_status = st.empty()
+                
+                for idx, file in enumerate(uploaded_files):
+                    batch_status.text(f"Processing {file.name}... ({idx + 1}/{len(uploaded_files)})")
+                    img_array, _ = preprocess_image(file)
+                    if img_array is not None:
+                        predictions = predict_breed(model, img_array, top_k=5)
+                        if predictions:
+                            batch_results.append({
+                                'filename': file.name,
+                                'top_breed': predictions[0]['breed'],
+                                'confidence': predictions[0]['percentage'],
+                                'predictions': predictions
+                            })
+                    batch_progress.progress((idx + 1) / len(uploaded_files))
+                
+                batch_status.empty()
+                batch_progress.empty()
+                
+                if batch_results:
+                    # Create batch summary
+                    st.markdown("### 🏆 Batch Results Overview")
+                    
+                    # Summary metrics
+                    avg_confidence = np.mean([r['confidence'] for r in batch_results])
+                    high_conf_count = len([r for r in batch_results if r['confidence'] >= 80])
+                    unique_breeds = len(set([r['top_breed'] for r in batch_results]))
+                    
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Images Processed", len(batch_results))
+                    with col2:
+                        st.metric("Average Confidence", f"{avg_confidence:.1f}%")
+                    with col3:
+                        st.metric("High Confidence (≥80%)", high_conf_count)
+                    with col4:
+                        st.metric("Unique Breeds Found", unique_breeds)
+                    
+                    # Batch results table
+                    batch_df = pd.DataFrame([
+                        {
+                            'Image': r['filename'],
+                            'Predicted Breed': r['top_breed'],
+                            'Confidence': f"{r['confidence']:.1f}%",
+                            'Assessment': get_prediction_confidence_level(r['confidence'])[0]
+                        }
+                        for r in batch_results
+                    ])
+                    st.dataframe(batch_df, use_container_width=True, hide_index=True)
+                    
+                    # Breed distribution chart
+                    if len(batch_results) > 1:
+                        breed_counts = pd.DataFrame([r['top_breed'] for r in batch_results], columns=['breed']).value_counts('breed').reset_index()
+                        breed_counts.columns = ['Breed', 'Count']
+                        fig_breeds = px.bar(breed_counts, x='Breed', y='Count', 
+                                          title='🐕 Predicted Breed Distribution Across All Images',
+                                          color='Count', color_continuous_scale='viridis')
+                        fig_breeds.update_layout(height=400, title_x=0.5, xaxis_tickangle=-45)
+                        st.plotly_chart(fig_breeds, use_container_width=True, key="batch_breed_distribution")
+                    
+                    # Confidence distribution chart
+                    if len(batch_results) > 1:
+                        conf_data = pd.DataFrame([
+                            {'Image': r['filename'], 'Confidence': r['confidence']}
+                            for r in batch_results
+                        ])
+                        fig_conf = px.histogram(conf_data, x='Confidence', nbins=10,
+                                              title='📈 Confidence Score Distribution',
+                                              labels={'Confidence': 'Confidence (%)', 'count': 'Number of Images'})
+                        fig_conf.update_layout(height=300, title_x=0.5)
+                        st.plotly_chart(fig_conf, use_container_width=True, key="batch_confidence_distribution")
+                
+                st.divider()
+            
+            # Individual image analysis
+            if show_individual:
+                st.markdown("## 🔍 Individual Image Analysis")
+                for i, uploaded_file in enumerate(uploaded_files):
+                    with st.expander(f"📸 Image {i+1}: {uploaded_file.name}", expanded=len(uploaded_files) <= 3):
+                        # two-column layout: left=image, right=top1 & short info
+                        col1, col2 = st.columns([1, 1])
+
+                        predictions = []
+
+                        with col1:
+                            try:
+                                image_pil = Image.open(uploaded_file)
+                                st.image(image_pil, caption=f"Uploaded: {uploaded_file.name}", use_container_width=True)
+                            except Exception as e:
+                                st.error(f"Could not display image: {e}")
+                                image_pil = None
+
+                        with col2:
+                            with st.spinner("🔄 Elite AI analyzing image..."):
+                                img_array, processed_img = preprocess_image(uploaded_file)
+                                if img_array is not None:
+                                    predictions = predict_breed(model, img_array, top_k=show_top_k)
+                                    if predictions and len(predictions) > 0:
+                                        # Keep Top-1 display inside the right column
+                                        top_prediction = predictions[0]
+                                        confidence_level, css_class = get_prediction_confidence_level(top_prediction['percentage'])
+                                        st.markdown(f"""
+                                            <div class="prediction-box {css_class}">
+                                                <h2>🏆 Elite Prediction</h2>
+                                                <h1>{top_prediction['breed']}</h1>
+                                                <h2>{top_prediction['percentage']:.1f}% Confidence</h2>
+                                                <h3>{confidence_level}</h3>
+                                            </div>
+                                            """, unsafe_allow_html=True)
+
+                                        confidence = top_prediction['percentage']
+                                        if confidence > 80:
+                                            st.success("🌟 **ELITE CONFIDENCE**: Extremely reliable prediction.")
+                                        elif confidence > 60:
+                                            st.success("🎯 **HIGH CONFIDENCE**: Very reliable prediction.")
+                                        elif confidence > 40:
+                                            st.warning("✅ **GOOD CONFIDENCE**: Solid prediction, check alternatives.")
+                                        else:
+                                            st.info("🤔 **UNCERTAIN**: Consider top 3–5 predictions.")
+
+                                    else:
+                                        st.warning("No predictions returned by model.")
+                                else:
+                                    st.error("❌ Failed to preprocess the image. Please try a different image.")
+
+                        # ---------- CENTERED FULL-WIDTH TOP-5 BLOCK ----------
+                        if predictions is not None and len(predictions) > 0:
+                            # Ensure we always show top-5 slots (fill with placeholders if needed)
+                            top5 = predictions[:5]
+                            # If fewer than 5 results, pad with blanks
+                            while len(top5) < 5:
+                                top5.append({'rank': len(top5)+1, 'breed': '—', 'confidence': 0.0, 'percentage': 0.0})
+
+                            # Centered header
+                            st.markdown("<div class='top5-header'>🔝 Top 5 Predictions</div>", unsafe_allow_html=True)
+
+                            # Full width row of 5 columns so cards span the page and are centered
+                            card_cols = st.columns(5)
+                            for col, p in zip(card_cols, top5):
+                                with col:
+                                    st.markdown(
+                                        f"""
+                                        <div class="top5-card">
+                                          <div class="top5-rank">Rank #{p['rank']}</div>
+                                          <div class="top5-breed">{p['breed']}</div>
+                                          <div style="font-weight:600">{p['percentage']:.1f}%</div>
+                                        </div>
+                                        """,
+                                        unsafe_allow_html=True
+                                    )
+
+                            # Single Top-5 chart (full width) with unique key
+                            fig_top5 = create_confidence_chart([p for p in top5 if p['breed'] != '—'])
+                            st.plotly_chart(fig_top5, use_container_width=True, key=f"top5_chart_image_{i}")
+
+                            # Top-5 dataframe / quick table
+                            df_top5 = pd.DataFrame([p for p in top5 if p['breed'] != '—'])
+                            if not df_top5.empty:
+                                df_top5['confidence'] = df_top5['percentage'].apply(lambda x: f"{x:.1f}%")
+                                df_top5['assessment'] = df_top5['percentage'].apply(lambda x: get_prediction_confidence_level(x)[0])
+                                st.dataframe(df_top5[['rank', 'breed', 'confidence', 'assessment']], use_container_width=True, hide_index=True)
+
+                        # Detailed predictions (filtered by threshold)
+                        if predictions is not None and len(predictions) > 0:
+                            st.subheader("📊 Elite Model Detailed Analysis (Filtered by Confidence Threshold)")
+                            filtered_predictions = [p for p in predictions if p['percentage'] >= show_confidence_threshold]
+                            if filtered_predictions:
+                                fig = create_confidence_chart(filtered_predictions)
+                                st.plotly_chart(fig, use_container_width=True, key=f"detailed_chart_image_{i}")
+
+                                df_predictions = pd.DataFrame(filtered_predictions)
+                                df_predictions['confidence'] = df_predictions['percentage'].apply(lambda x: f"{x:.1f}%")
+                                df_predictions['assessment'] = df_predictions['percentage'].apply(lambda x: get_prediction_confidence_level(x)[0])
+                                st.dataframe(df_predictions[['rank', 'breed', 'confidence', 'assessment']], use_container_width=True, hide_index=True)
+                            else:
+                                st.warning(f"No predictions above {show_confidence_threshold}% confidence threshold.")
+            else:
+                st.info("💡 **Individual analysis disabled** - Only batch summary is shown above. Enable 'Show Individual Analysis' to see detailed results for each image.")
+        else:
+            st.markdown("""
+            ### 🏆 Experience Elite-Level Dog Breed Classification with Multiple Images!
+
+            Upload your dog images above to experience our **elite model** that achieved:
+            - **90.57% accuracy** on test data (634/700 correct predictions)
+            - **99.71% top-5 accuracy** (correct breed in top 5 for 698/700 images)
+            - **98.71% top-3 accuracy** for practical applications
+            
+            #### 🚀 **New Multiple Image Features:**
+            - **Batch Processing**: Upload multiple images at once
+            - **Batch Summary**: Get overview statistics across all images
+            - **Breed Distribution**: See which breeds appear most frequently
+            - **Confidence Analysis**: Analyze prediction confidence patterns
+            - **Individual Analysis**: Toggle detailed analysis per image
+            """)
+            st.subheader("🐕 70 Supported Dog Breeds")
+            breeds_df = pd.DataFrame({
+                'Dog Breeds': DOG_BREEDS[:35],
+                'More Breeds': DOG_BREEDS[35:70] if len(DOG_BREEDS) > 35 else [''] * (35 - len(DOG_BREEDS[35:]))
+            })
+            st.dataframe(breeds_df, use_container_width=True, hide_index=True)
+
     with tab2:
         create_elite_performance_metrics()
         st.subheader("🧪 Actual Test Results Breakdown")
@@ -413,7 +549,7 @@ def main():
         fig_results = px.bar(df_results.iloc[:-1], x='Metric', y='Count', title='🎯 Test Results: Elite Performance Breakdown', text='Count', color='Percentage', color_continuous_scale='RdYlGn')
         fig_results.update_traces(texttemplate='%{text} / 700', textposition='outside')
         fig_results.update_layout(height=400, title_x=0.5)
-        st.plotly_chart(fig_results, use_container_width=True)
+        st.plotly_chart(fig_results, use_container_width=True, key="performance_metrics_chart")
         st.dataframe(df_results, use_container_width=True, hide_index=True)
 
     with tab3:
