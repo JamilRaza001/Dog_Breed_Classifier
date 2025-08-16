@@ -42,22 +42,76 @@ st.markdown("""
 
 # --- DOG BREEDS & METRICS ---
 DOG_BREEDS = [
-    "Affenpinscher", "Afghan Hound", "African Hunting Dog", "Airedale Terrier",
-    "American Staffordshire Terrier", "Appenzeller Sennenhund", "Australian Terrier",
-    "Basenji", "Basset Hound", "Beagle", "Bedlington Terrier", "Bernese Mountain Dog",
-    "Black-and-tan Coonhound", "Blenheim Spaniel", "Bloodhound", "Bluetick Coonhound",
-    "Border Collie", "Border Terrier", "Borzoi", "Boston Terrier", "Bouvier des Flandres",
-    "Boxer", "Brabancon Griffon", "Briard", "Brittany", "Bull Mastiff", "Bull Terrier",
-    "Bulldog", "Cairn Terrier", "Cardigan Welsh Corgi", "Chesapeake Bay Retriever",
-    "Chihuahua", "Chinese Crested", "Chinese Shar-pei", "Chow Chow", "Clumber Spaniel",
-    "Cocker Spaniel", "Collie", "Curly-coated Retriever", "Dachshund", "Dalmatian",
-    "Dandie Dinmont Terrier", "Doberman Pinscher", "English Foxhound", "English setter",
-    "English Springer Spaniel", "EntleBucher", "Eskimo Dog", "French Bulldog",
-    "German Shepherd", "German Short-haired Pointer", "Giant Schnauzer", "Golden Retriever",
-    "Gordon Setter", "Great Dane", "Great Pyrenees", "Greater Swiss Mountain Dog",
-    "Havanese", "Ibizan Hound", "Irish Setter", "Irish Terrier", "Irish Water Spaniel",
-    "Irish Wolfhound", "Italian Greyhound", "Japanese Spaniel", "Keeshond", "Kerry Blue Terrier",
-    "Komondor", "Kuvasz", "Labrador Retriever", "Lakeland Terrier", "Leonberger", "Lhasa Apso"
+    'Afghan',
+    'African Wild Dog',
+    'Airedale',
+    'American Hairless',
+    'American Spaniel',
+    'Basenji',
+    'Basset',
+    'Beagle',
+    'Bearded Collie',
+    'Bermaise',
+    'Bichon Frise',
+    'Blenheim',
+    'Bloodhound',
+    'Bluetick',
+    'Border Collie',
+    'Borzoi',
+    'Boston Terrier',
+    'Boxer',
+    'Bull Mastiff',
+    'Bull Terrier',
+    'Bulldog',
+    'Cairn',
+    'Chihuahua',
+    'Chinese Crested',
+    'Chow',
+    'Clumber',
+    'Cockapoo',
+    'Cocker',
+    'Collie',
+    'Corgi',
+    'Coyote',
+    'Dalmation',
+    'Dhole',
+    'Dingo',
+    'Doberman',
+    'Elk Hound',
+    'French Bulldog',
+    'German Sheperd',
+    'Golden Retriever',
+    'Great Dane',
+    'Great Perenees',
+    'Greyhound',
+    'Groenendael',
+    'Irish Spaniel',
+    'Irish Wolfhound',
+    'Japanese Spaniel',
+    'Komondor',
+    'Labradoodle',
+    'Labrador',
+    'Lhasa',
+    'Malinois',
+    'Maltese',
+    'Mex Hairless',
+    'Newfoundland',
+    'Pekinese',
+    'Pit Bull',
+    'Pomeranian',
+    'Poodle',
+    'Pug',
+    'Rhodesian',
+    'Rottweiler',
+    'Saint Bernard',
+    'Schnauzer',
+    'Scotch Terrier',
+    'Shar_Pei',
+    'Shiba Inu',
+    'Shih-Tzu',
+    'Siberian Husky',
+    'Vizsla',
+    'Yorkie'
 ]
 
 ACTUAL_METRICS = {
@@ -345,38 +399,7 @@ def main():
                         df_top5['assessment'] = df_top5['percentage'].apply(lambda x: get_prediction_confidence_level(x)[0])
                         st.dataframe(df_top5[['rank', 'breed', 'confidence', 'assessment']], use_container_width=True, hide_index=True)
 
-                # Detailed predictions (filtered by threshold)
-                if predictions is not None and len(predictions) > 0:
-                    st.subheader("📊 Elite Model Detailed Analysis (Filtered by Confidence Threshold)")
-                    filtered_predictions = [p for p in predictions if p['percentage'] >= show_confidence_threshold]
-                    if filtered_predictions:
-                        fig = create_confidence_chart(filtered_predictions)
-                        st.plotly_chart(fig, use_container_width=True)
-
-                        df_predictions = pd.DataFrame(filtered_predictions)
-                        df_predictions['confidence'] = df_predictions['percentage'].apply(lambda x: f"{x:.1f}%")
-                        df_predictions['assessment'] = df_predictions['percentage'].apply(lambda x: get_prediction_confidence_level(x)[0])
-                        st.dataframe(df_predictions[['rank', 'breed', 'confidence', 'assessment']], use_container_width=True, hide_index=True)
-                    else:
-                        st.warning(f"No predictions above {show_confidence_threshold}% confidence threshold.")
-
-                st.divider()
-        else:
-            st.markdown("""
-            ### 🏆 Experience Elite-Level Dog Breed Classification!
-
-            Upload your dog images above to experience our **elite model** that achieved:
-            - **90.57% accuracy** on test data (634/700 correct predictions)
-            - **99.71% top-5 accuracy** (correct breed in top 5 for 698/700 images)
-            - **98.71% top-3 accuracy** for practical applications
-            """)
-            st.subheader("🐕 70 Supported Dog Breeds")
-            breeds_df = pd.DataFrame({
-                'Dog Breeds': DOG_BREEDS[:35],
-                'More Breeds': DOG_BREEDS[35:70] if len(DOG_BREEDS) > 35 else [''] * (35 - len(DOG_BREEDS[35:]))
-            })
-            st.dataframe(breeds_df, use_container_width=True, hide_index=True)
-
+                
     with tab2:
         create_elite_performance_metrics()
         st.subheader("🧪 Actual Test Results Breakdown")
